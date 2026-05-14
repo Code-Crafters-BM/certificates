@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Code Crafters | Secure Certificate Verification</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.9.0/jsrsasign-all-min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            /* Light Mode Default */
+            --bg-main: #f0f6ff;
+            --surface-card: rgba(255, 255, 255, 0.65);
+            --border-subtle: rgba(0, 121, 255, 0.15);
+            --border-glow: rgba(0, 121, 255, 0.3);
+            --text-primary: #0a0a1e;
+            --text-secondary: #4a5568;
+            --accent-blue: #0079ff;
+            --input-bg: rgba(255, 255, 255, 0.8);
+            --result-bg-success: rgba(16, 185, 129, 0.1);
+            --result-bg-error: rgba(239, 68, 68, 0.1);
+            --success-color: #10b981;
+            --error-color: #ef4444;
+            --glass-blur: blur(20px);
+            --shadow-card: 0 25px 50px -12px rgba(0, 121, 255, 0.15);
+        }
+
+        [data-theme='dark'] {
+            /* Dark Mode */
+            --bg-main: #0a0a1e;
+            --surface-card: rgba(15, 15, 30, 0.7);
+            --border-subtle: rgba(0, 121, 255, 0.3);
+            --text-primary: #f0f6ff;
+            --text-secondary: #a0aec0;
+            --input-bg: rgba(0, 0, 0, 0.5);
+            --result-bg-success: rgba(16, 185, 129, 0.15);
+            --result-bg-error: rgba(239, 68, 68, 0.15);
+            --shadow-card: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at top left, rgba(0, 121, 255, 0.15) 0%, var(--bg-main) 70%);
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1.5rem;
+            transition: background-color 0.4s ease, color 0.4s ease;
+            margin: 0;
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            background: var(--surface-card);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1) rotate(15deg);
+            box-shadow: 0 0 15px rgba(0, 121, 255, 0.4);
+            border-color: var(--accent-blue);
+        }
+
+        .verification-card {
+            background: var(--surface-card);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-radius: 2rem;
+            padding: 2.5rem 2rem;
+            width: 100%;
+            max-width: 520px;
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-card), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+        
+        .verification-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 30px 60px -12px rgba(0, 121, 255, 0.2);
+        }
+
+        .brand-header { display: flex; flex-direction: column; align-items: center; margin-bottom: 1.5rem; }
+
+        .logo-container {
+            background: var(--input-bg);
+            width: 90px;
+            height: 90px;
+            border-radius: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 121, 255, 0.3);
+            border: 1px solid var(--border-subtle);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .logo-svg { width: 65px; height: auto; }
+        .club-name { font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; color: var(--text-primary); margin-top: 0.2rem; }
+        .tagline { font-size: 0.9rem; color: var(--accent-blue); font-weight: 500; letter-spacing: 0.5px; margin-top: 0.25rem; }
+
+        .verification-sub {
+            text-align: center; font-size: 0.85rem; color: var(--text-secondary); margin: 0.5rem auto 1.5rem auto;
+            background: var(--input-bg); padding: 0.5rem 1rem; border-radius: 2rem; border: 1px solid var(--border-subtle); width: fit-content;
+        }
+
+        
+        
+        
+        
+
+        
+        
+        
+
+        .result-panel {
+            margin-top: 1.5rem; padding: 1.5rem; border-radius: 1.2rem; display: none;
+            animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            border: 1px solid var(--border-subtle);
+        }
+        @keyframes slideUpFade { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .success-result { background: var(--result-bg-success); border-color: rgba(16, 185, 129, 0.3); box-shadow: 0 10px 30px rgba(16, 185, 129, 0.1); }
+        .error-result { background: var(--result-bg-error); border-color: rgba(239, 68, 68, 0.3); }
+        .status-icon { font-size: 1.5rem; margin-right: 10px; }
+        .result-header { display: flex; align-items: center; font-weight: 700; font-size: 1.2rem; margin-bottom: 1rem; padding-bottom: 0.8rem; border-bottom: 1px dashed var(--border-subtle); }
+
+        .cert-detail-grid { display: flex; flex-direction: column; gap: 0.8rem; }
+        .detail-item { display: flex; flex-direction: column; gap: 0.2rem; }
+        .detail-label { color: var(--text-secondary); font-weight: 500; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
+        .detail-value { font-weight: 600; color: var(--text-primary); font-size: 1.1rem; }
+        .issuer-badge { margin-top: 1rem; font-size: 0.8rem; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--border-subtle); font-weight: 500; }
+        .error-message { color: var(--error-color); font-weight: 600; font-size: 1.1rem; }
+        .error-detail { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem; }
+
+        .scan-toggle-btn {
+            background: transparent; color: var(--accent-blue); border: 2px dashed var(--border-subtle);
+            padding: 0.8rem; border-radius: 1.2rem; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+            width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 1rem;
+            transition: all 0.3s ease; font-family: 'Outfit', sans-serif;
+        }
+        .scan-toggle-btn:hover { border-style: solid; background: var(--accent-glow); }
+        .scan-toggle-btn.active { border-style: solid; background: var(--accent-glow); animation: pulse-border 2s infinite; }
+        @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(0, 121, 255, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(0, 121, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 121, 255, 0); } }
+
+        #qr-reader-section { display: none; margin-bottom: 1rem; border-radius: 1.2rem; overflow: hidden; border: 2px solid var(--accent-blue); box-shadow: 0 10px 25px rgba(0, 121, 255, 0.2); }
+        #qr-reader-section.visible { display: block; }
+        #qr-reader { width: 100%; border: none; }
+        #qr-reader video { border-radius: 1rem !important; }
+
+        .cert-actions { display: flex; gap: 1rem; margin-top: 1.5rem; }
+        .action-btn { flex: 1; padding: 0.8rem; border-radius: 1rem; font-size: 0.95rem; font-weight: 600; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s; text-decoration: none; font-family: 'Outfit', sans-serif; }
+        .btn-linkedin { background: #0A66C2; color: white; box-shadow: 0 4px 15px rgba(10, 102, 194, 0.3); }
+        .btn-linkedin:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(10, 102, 194, 0.4); }
+        .btn-share { background: var(--input-bg); color: var(--text-primary); border: 1px solid var(--border-subtle); }
+        .btn-share:hover { background: var(--accent-glow); border-color: var(--accent-blue); color: var(--accent-blue); transform: translateY(-2px); }
+
+        .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text-primary); color: var(--bg-main); padding: 0.8rem 1.5rem; border-radius: 2rem; font-weight: 600; opacity: 0; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); pointer-events: none; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 1000; }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    
+        .logo-light { display: block; }
+        .logo-dark { display: none; }
+        [data-theme='dark'] .logo-light { display: none; }
+        [data-theme='dark'] .logo-dark { display: block; }
+</style>
+
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <div class="bg-glow bg-glow-left"></div>
+
+    
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn"></button>
+    <div class="verification-card">
+
+        <div class="brand-header">
+            <div class="logo-container">
+                
+                <!-- Light Mode Logo -->
+                <svg class="logo-svg logo-light" viewBox="0 0 105.99 80.74" xmlns="http://www.w3.org/2000/svg">
+                  <path fill="#0b0b1e" d="M32.2,44.27l14.32,24.79c3,5.19-.75,11.68-6.75,11.68h-13.17c-2.78,0-5.35-1.48-6.75-3.89L1.04,44.27c-1.39-2.41-1.39-5.38,0-7.79L19.86,3.89c1.39-2.41,3.96-3.89,6.75-3.89h13.17c6,0,9.74,6.49,6.75,11.68l-14.32,24.79c-1.39,2.41-1.39,5.38,0,7.79Z"/>
+                  <path fill="#0b0b1e" d="M71.14,44.27l14.32,24.79c3,5.19-.75,11.68-6.75,11.68h-13.17c-2.78,0-5.35-1.48-6.75-3.89l-18.81-32.58c-1.39-2.41-1.39-5.38,0-7.79L58.8,3.89c1.39-2.41,3.96-3.89,6.75-3.89h13.17c6,0,9.74,6.49,6.75,11.68l-14.32,24.79c-1.39,2.41-1.39,5.38,0,7.79Z"/>
+                  <path fill="#007aff" d="M104.73,45.07l-8.97,15.54c-1.81,3.13-6.33,3.13-8.14,0l-8.97-15.54c-1.68-2.91-1.68-6.5,0-9.41l8.97-15.54c1.81-3.13,6.33-3.13,8.14,0l8.97,15.54c1.68,2.91,1.68,6.49,0,9.4Z"/>
+                </svg>
+
+                <!-- Dark Mode Logo -->
+                <svg class="logo-svg logo-dark" viewBox="0 0 1680 1415" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M628.1,750.68l145.87,252.65c30.55,52.91-7.64,119.05-68.73,119.05h-134.17c-28.35,0-54.55-15.13-68.73-39.68l-191.69-332.01c-14.18-24.56-14.18-54.81,0-79.37l191.69-332.01c14.18-24.56,40.38-39.68,68.73-39.68h134.17c61.1,0,99.28,66.14,68.73,119.05l-145.87,252.65c-14.18,24.56-14.18,54.81,0,79.37Z" fill="#007aff"/>
+                    <path d="M1024.92,750.68l145.87,252.65c30.55,52.91-7.64,119.05-68.73,119.05h-134.17c-28.35,0-54.55-15.13-68.73-39.68l-191.69-332.01c-14.18-24.56-14.18-54.81,0-79.37l191.69-332.01c14.18-24.56,40.38-39.68,68.73-39.68h134.17c61.1,0,99.28,66.14,68.73,119.05l-145.87,252.65c-14.18,24.56-14.18,54.81,0,79.37Z" fill="#007aff"/>
+                    <path d="M1367.16,758.91l-91.42,158.34c-18.44,31.94-64.54,31.94-82.98,0l-91.43-158.33c-17.12-29.65-17.12-66.19,0-95.84l91.43-158.33c18.44-31.94,64.54-31.94,82.98,0l91.42,158.34c17.12,29.65,17.12,66.17,0,95.82Z" fill="white"/>
+                </svg>
+
+            </div>
+            <h1 class="club-name">Code Crafters</h1>
+            <div class="tagline">✦ authenticity forged in code ✦</div>
+        </div>
+        
+        <div class="verification-sub">
+             cryptographically sealed | ECC-verified credentials
+        </div>
+
+        
+
+        <button class="scan-toggle-btn" id="scanToggleBtn" onclick="toggleScanner()">
+            <span></span> Scan QR Code
+        </button>
+        <div id="qr-reader-section">
+            <div id="qr-reader"></div>
+        </div>
+
+        
+
+        <div id="resultBox" class="result-panel"></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        
+        function toggleTheme() {
+            const body = document.documentElement;
+            const currentTheme = body.getAttribute('data-theme');
+            const btn = document.getElementById('themeBtn');
+            const sunIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
+            const moonIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+            
+            if (currentTheme === 'dark') {
+                body.removeAttribute('data-theme');
+                btn.innerHTML = moonIcon;
+                localStorage.setItem('theme', 'light');
+            } else {
+                body.setAttribute('data-theme', 'dark');
+                btn.innerHTML = sunIcon;
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+        
+        // Init theme
+        if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('themeBtn');
+            const sunIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
+            const moonIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+            if (btn) btn.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? sunIcon : moonIcon;
+        });
+
+        let PUBLIC_KEY_PEM = null;
+
+
+        async function fetchPublicKey() {
+            try {
+                const response = await fetch('ecc_public_key.pem');
+                if (!response.ok) throw new Error("Failed to fetch public key");
+                PUBLIC_KEY_PEM = await response.text();
+            } catch (error) {
+                console.error(error);
+                const resultBox = document.getElementById('resultBox');
+                resultBox.style.display = 'block';
+                resultBox.classList.add('error-result');
+                resultBox.innerHTML = `
+                    <div class="result-header" style="color: var(--error-crimson);">
+                        <span class="status-icon"></span> 
+                        <span>System Error</span>
+                    </div>
+                    <div class="error-message">Failed to load public verification key.</div>
+                    <div class="error-detail">Please ensure ecc_public_key.pem is uploaded to the server.</div>
+                `;
+            }
+        }
+
+        function decodeUrlSafeBase64ToString(base64Url) {
+            let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4 !== 0) { base64 += '='; }
+            return decodeURIComponent(escape(window.atob(base64)));
+        }
+
+        function decodeUrlSafeBase64ToHex(base64Url) {
+            let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4 !== 0) { base64 += '='; }
+            const raw = window.atob(base64);
+            let hex = '';
+            for (let i = 0; i < raw.length; i++) {
+                const hexChar = raw.charCodeAt(i).toString(16);
+                hex += (hexChar.length === 1 ? '0' : '') + hexChar;
+            }
+            return hex;
+        }
+
+        function verifyCertificate(certId) {
+            try {
+                if (!PUBLIC_KEY_PEM) throw new Error("Public key not initialized.");
+
+                const parts = certId.split('.');
+                if (parts.length !== 2) throw new Error("Invalid ID Format. Expected payload.signature");
+                
+                const b64Payload = parts[0];
+                const b64Signature = parts[1];
+
+                if (!b64Payload || !b64Signature) throw new Error("Empty payload or signature");
+                
+                const decodedPayloadString = decodeUrlSafeBase64ToString(b64Payload);
+                const signatureHex = decodeUrlSafeBase64ToHex(b64Signature);
+
+                const sig = new KJUR.crypto.Signature({"alg": "SHA256withECDSA"});
+                sig.init(PUBLIC_KEY_PEM);
+                sig.updateString(decodedPayloadString);
+                const isValid = sig.verify(signatureHex);
+
+                if (isValid) {
+                    const dataParts = decodedPayloadString.split('|');
+                    if (dataParts.length >= 3) {
+                        return {
+                            valid: true,
+                            name: dataParts[0] || "Certificate Holder",
+                            course: dataParts[1] || "Mastery Program",
+                            year: dataParts[2] || "2024",
+                            serial: dataParts[3] || null,
+                            issuedAt: dataParts[4] || null
+                        };
+                    } else {
+                        return { valid: false, error: "Invalid certificate data structure. Missing recipient information." };
+                    }
+                } else {
+                    return { valid: false, error: "Cryptographic signature mismatch — this certificate may be forged or altered." };
+                }
+            } catch (error) {
+                console.error("Verification error:", error);
+                let friendlyMsg = "Malformed certificate ID. Please check the format (payload.signature).";
+                if (error.message && error.message.includes("Invalid ID Format")) friendlyMsg = error.message;
+                else if (error.message && error.message.includes("Invalid character")) friendlyMsg = "Invalid characters in certificate ID. Use URL-safe base64.";
+                else if (error.message && error.message.includes("Public key")) friendlyMsg = error.message;
+                return { valid: false, error: friendlyMsg };
+            }
+        }
+
+        function displayResult(result, certId) {
+            const resultBox = document.getElementById('resultBox');
+            resultBox.style.display = 'block';
+            resultBox.classList.remove('success-result', 'error-result');
+            
+            if (result.valid) {
+                resultBox.classList.add('success-result');
+
+                const verifyUrl = window.location.href.split('?')[0] + `?id=${encodeURIComponent(certId || '')}&verify=true`;
+                const linkedInUrl = 'https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME'
+                    + `&name=${encodeURIComponent(result.course)}`
+                    + `&organizationName=Code%20Crafters`
+                    + `&issueYear=${encodeURIComponent(result.year)}`
+                    + (result.issuedAt ? `&issueMonth=${encodeURIComponent(result.issuedAt.split('-')[1])}` : '')
+                    + `&certUrl=${encodeURIComponent(verifyUrl)}`
+                    + (result.serial ? `&certId=${encodeURIComponent(result.serial)}` : '');
+
+                const serialHtml = result.serial
+                    ? `<div class="detail-item"><span class="detail-label">Serial</span><span class="detail-value">${escapeHtml(result.serial)}</span></div>` : '';
+                const issuedHtml = result.issuedAt
+                    ? `<div class="detail-item"><span class="detail-label">Issued on</span><span class="detail-value">${escapeHtml(result.issuedAt)}</span></div>` : '';
+
+                resultBox.innerHTML = `
+                    <div class="result-header">
+                        <span class="status-icon"></span> 
+                        <span>Authenticity Verified</span>
+                    </div>
+                    <div class="cert-detail-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">Recipient</span>
+                            <span class="detail-value">${escapeHtml(result.name)}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Specialization</span>
+                            <span class="detail-value">${escapeHtml(result.course)}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Year of merit</span>
+                            <span class="detail-value">${escapeHtml(result.year)}</span>
+                        </div>
+                        ${serialHtml}
+                        ${issuedHtml}
+                    </div>
+                    <div class="issuer-badge">
+                        <span> Code Crafters • cryptographically sealed</span>
+                        <span> ECC P-256</span>
+                    </div>
+                    <div class="cert-actions">
+                        <a href="${linkedInUrl}" target="_blank" rel="noopener noreferrer" class="action-btn btn-linkedin">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                            Add to LinkedIn
+                        </a>
+                        <button class="action-btn btn-share" onclick="handleShare('${escapeHtml(certId || '')}', '${escapeHtml(result.name)}', '${escapeHtml(result.course)}')">  
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                            Share
+                        </button>
+                    </div>
+                `;
+            } else {
+                resultBox.classList.add('error-result');
+                resultBox.innerHTML = `
+                    <div class="result-header" style="color: var(--error-crimson);">
+                        <span class="status-icon"></span> 
+                        <span>Verification failed</span>
+                    </div>
+                    <div class="error-message">
+                         ${escapeHtml(result.error || "Certificate could not be validated")}
+                    </div>
+                    <div class="error-detail">
+                         The certificate ID doesn't match our cryptographic ledger. Double-check the ID or contact Code Crafters support with your certificate reference.
+                    </div>
+                `;
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+                return c;
+            });
+        }
+
+        let isVerifying = false;
+        
+        async function handleVerification(certId, showLoading = true) {
+            if (isVerifying || !PUBLIC_KEY_PEM) return;
+            const resultBox = document.getElementById('resultBox');
+            
+            if (!certId) {
+                resultBox.style.display = 'block';
+                resultBox.classList.remove('success-result', 'error-result');
+                resultBox.classList.add('error-result');
+                resultBox.innerHTML = `
+                    <div class="result-header" style="color: var(--error-crimson);">
+                        <span class="status-icon"></span>
+                        <span>Missing Certificate ID</span>
+                    </div>
+                    <div class="error-message">
+                        Please enter a valid certificate identifier
+                    </div>
+                    <div class="error-detail">
+                        Format: [payload].[signature] — both parts must be URL-safe base64 encoded.
+                    </div>
+                `;
+                return;
+            }
+            
+            if (showLoading) {
+                isVerifying = true;
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                const result = verifyCertificate(certId);
+                displayResult(result, certId);
+                isVerifying = false;
+            } else {
+                const result = verifyCertificate(certId);
+                displayResult(result, certId);
+            }
+        }
+
+        
+
+        
+
+        // --- Toast helper ---
+        function showToast(msg, duration = 2500) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), duration);
+        }
+
+        // --- Share / Copy helper ---
+        async function handleShare(certId, name, course) {
+            const verifyUrl = window.location.href.split('?')[0] + `?id=${encodeURIComponent(certId)}&verify=true`;
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: `${name}'s Code Crafters Certificate`,
+                        text: `Verify ${name}'s certificate in "${course}" issued by Code Crafters.`,
+                        url: verifyUrl
+                    });
+                } catch (e) { /* user cancelled */ }
+            } else {
+                try {
+                    await navigator.clipboard.writeText(verifyUrl);
+                    showToast(' Verification link copied!');
+                } catch (e) {
+                    showToast('Could not copy link — try manually.');
+                }
+            }
+        }
+
+        // --- QR Scanner ---
+        let html5QrCode = null;
+        let scannerRunning = false;
+
+        function toggleScanner() {
+            const section = document.getElementById('qr-reader-section');
+            const btn = document.getElementById('scanToggleBtn');
+            if (scannerRunning) {
+                stopScanner();
+            } else {
+                section.classList.add('visible');
+                btn.classList.add('active');
+                btn.innerHTML = '<span></span> Stop Scanner';
+                startScanner();
+            }
+        }
+
+        function stopScanner() {
+            const section = document.getElementById('qr-reader-section');
+            const btn = document.getElementById('scanToggleBtn');
+            if (html5QrCode && scannerRunning) {
+                html5QrCode.stop().catch(() => {});
+            }
+            scannerRunning = false;
+            section.classList.remove('visible');
+            btn.classList.remove('active');
+            btn.innerHTML = '<span></span> Scan QR Code';
+        }
+
+        function startScanner() {
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode('qr-reader');
+            }
+            html5QrCode.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 220, height: 220 } },
+                (decodedText) => {
+                    // Extract cert ID — QR encodes full URL, we just need the `id` param
+                    let certId = decodedText;
+                    try {
+                        const url = new URL(decodedText);
+                        const idParam = url.searchParams.get('id');
+                        if (idParam) certId = idParam;
+                    } catch (e) { /* not a URL, use raw text */ }
+
+                    stopScanner();
+                    
+                    
+                    handleVerification(certId, true);
+                },
+                () => { /* scan errors are normal, ignore */ }
+            ).then(() => {
+                scannerRunning = true;
+            }).catch((err) => {
+                stopScanner();
+                showToast('Camera access denied or unavailable.');
+                console.error('QR scanner error:', err);
+            });
+        }
+
+        window.onload = async function() {
+            await fetchPublicKey();
+            const urlParams = new URLSearchParams(window.location.search);
+            let certId = urlParams.get('id') || urlParams.get('certificate') || urlParams.get('cert');
+            
+            if (certId && PUBLIC_KEY_PEM) {
+                setTimeout(() => {
+                    handleVerification(certId, true);
+                }, 150);
+            }
+        };
+
+        window.debugVerify = function(certId) {
+            return verifyCertificate(certId);
+        };
+    </script>
+</body>
+</html>

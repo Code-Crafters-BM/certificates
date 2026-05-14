@@ -1,0 +1,11 @@
+__pycache__/
+output/
+ecc_private_key.pem
+*.exe
+build/
+dist/
+*.spec
+download_font.py
+style_gui.py
+rewrite_css.py
+refactor_index.py
