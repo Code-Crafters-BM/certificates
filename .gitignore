@@ -1,7 +1,7 @@
 __pycache__/
 output/
 ecc_private_key.pem
-*.exe
+
 build/
 dist/
 *.spec
