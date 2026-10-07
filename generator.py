@@ -61,11 +61,11 @@ def generate_pdf_certificate(name, course, qr_path, output_pdf_path, cert_type, 
     packet = io.BytesIO()
     can = canvas.Canvas(packet, pagesize=(page_width, page_height))
     
-    can.setFont("Satoshi-Black", settings.get('name_size', 41.46))
-    can.drawCentredString(page_width / 2.0, settings.get('name_y', 219.47), name)
-    
-    can.setFont("Satoshi-Black", settings.get('course_size', 30.98))
-    can.drawCentredString(page_width / 2.0, settings.get('course_y', 343.37), course)
+    can.setFont("Satoshi-Black", settings.get('name_size', 30.98))
+    can.drawCentredString(page_width / 2.0, settings.get('name_y', 343.37), name)
+
+    can.setFont("Satoshi-Black", settings.get('course_size', 41.46))
+    can.drawCentredString(page_width / 2.0, settings.get('course_y', 219.47), course)
     
     can.setFont("Satoshi-Black", settings.get('type_size', 16.81))
     can.drawCentredString(page_width / 2.0, settings.get('type_y', 113.69), cert_type)
@@ -74,7 +74,33 @@ def generate_pdf_certificate(name, course, qr_path, output_pdf_path, cert_type, 
     qr_y = settings.get('qr_y', 100)
     qr_size = settings.get('qr_size', 110)
     can.drawImage(qr_path, qr_x, qr_y, width=qr_size, height=qr_size, mask='auto')
-    
+
+    # Club stamp — bottom-right, mirroring the QR, tilted
+    stamp_path = resource_path(os.path.join('brand', 'stamp.png'))
+    if os.path.exists(stamp_path):
+        st_x = settings.get('stamp_x', 650)
+        st_y = settings.get('stamp_y', 52)
+        st_size = settings.get('stamp_size', 122)
+        st_angle = settings.get('stamp_angle', -14)
+        can.saveState()
+        can.translate(st_x + st_size / 2.0, st_y + st_size / 2.0)
+        can.rotate(st_angle)
+        can.drawImage(stamp_path, -st_size / 2.0, -st_size / 2.0, width=st_size, height=st_size, mask='auto')
+        can.restoreState()
+
+    # Officer signatures — above the two labels at the bottom-left
+    sig_w = settings.get('sig_w', 135)
+    sig_h = settings.get('sig_h', 46)
+    for fname, kx, ky, dx, dy in [
+        ('sig_president.png', 'sig_pres_x', 'sig_pres_y', 40, 54),
+        ('sig_chef.png', 'sig_chef_x', 'sig_chef_y', 228, 54),
+    ]:
+        sig_path = resource_path(os.path.join('brand', fname))
+        if os.path.exists(sig_path):
+            can.drawImage(sig_path, settings.get(kx, dx), settings.get(ky, dy),
+                          width=sig_w, height=sig_h, mask='auto',
+                          preserveAspectRatio=True, anchor='sw')
+
     can.save()
     
     packet.seek(0)
@@ -90,14 +116,22 @@ def generate_pdf_certificate(name, course, qr_path, output_pdf_path, cert_type, 
         writer.write(f)
 
 import random
+import secrets
 
-def generate_single(name, course, year, cert_type, template_path, settings, base_url, serial_counter, output_dir, private_key_path, is_preview=False):
+SERIAL_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no ambiguous 0/O/1/I
+
+def generate_serial(year):
+    """Short, human-referable, non-sequential serial. Baked into the signed payload."""
+    suffix = ''.join(secrets.choice(SERIAL_ALPHABET) for _ in range(6))
+    return f"CC-{year}-{suffix}"
+
+def generate_single(name, course, year, cert_type, template_path, settings, base_url, output_dir, private_key_path, is_preview=False):
     safe_course = sanitize_filename(course)
     course_dir = os.path.join(output_dir, safe_course)
     os.makedirs(course_dir, exist_ok=True)
     base_url = base_url.rstrip('/')
     issued_at = datetime.date.today().isoformat()
-    serial = f"CC-{year}-{serial_counter:04d}"
+    serial = generate_serial(year)
     
     cert_id = generate_cert_id(name, course, year, serial, issued_at, private_key_path)
     verify_url = f"{base_url}?id={cert_id}&verify=true"
@@ -152,26 +186,11 @@ def process_data(names, course, year, cert_type, template_path, settings, privat
     
     output_csv = "generated_certificates.csv"
     file_exists = os.path.isfile(output_csv)
-    
-    # Find last serial number if appending
-    serial_counter = 0
-    if file_exists:
-        try:
-            with open(output_csv, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                rows = list(reader)
-                if rows:
-                    last_serial = rows[-1].get('Serial', '')
-                    if last_serial.startswith(f"CC-{year}-"):
-                        serial_counter = int(last_serial.split('-')[-1])
-        except Exception:
-            pass
 
     results = []
     success_count = 0
     for name in names:
-        serial_counter += 1
-        res = generate_single(name, course, year, cert_type, template_path, settings, base_url, serial_counter, output_dir, private_key_path)
+        res = generate_single(name, course, year, cert_type, template_path, settings, base_url, output_dir, private_key_path)
         results.append(res)
         success_count += 1
         

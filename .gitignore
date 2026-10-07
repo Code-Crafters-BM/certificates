@@ -1,11 +1,16 @@
-__pycache__/
-output/
-ecc_private_key.pem
-
-build/
-dist/
-*.spec
-download_font.py
-style_gui.py
-rewrite_css.py
-refactor_index.py
+# Ignore everything, then allow only the files below
+/*
+!/.gitignore
+!/README.md
+!/Satoshi-Black.ttf
+!/certificate-template.png
+!/brand/
+!/brand/stamp.png
+!/brand/sig_president.png
+!/brand/sig_chef.png
+!/ecc_public_key.pem
+!/generate_ecc.py
+!/generator.py
+!/gui.py
+!/index.html
+!/members.csv
