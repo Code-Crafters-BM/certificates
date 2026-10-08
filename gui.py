@@ -113,7 +113,7 @@ class CertificateGUI(ctk.CTk):
     def build_settings_tab(self):
         # Form for tweaking coordinates
         frame_coords = ctk.CTkFrame(self.tab_set, fg_color="#0d1117", corner_radius=10, border_width=1, border_color="#1a1e24")
-        frame_coords.pack(pady=20, padx=20, fill="x")
+        frame_coords.pack(pady=20, padx=20, fill="both", expand=True)
         
         # Defaults
         self.settings_vars = {}
@@ -170,34 +170,6 @@ class CertificateGUI(ctk.CTk):
         self.settings_vars['qr_size'] = ctk.StringVar(value=defaults['qr_size'])
         ctk.CTkEntry(frame_coords, textvariable=self.settings_vars['qr_size'], fg_color="#0a0a1e", border_color="#30363d", text_color="#f0f3f8", font=ctk.CTkFont(family="Outfit")).grid(row=4, column=2, padx=10)
         
-        # Stamp & signature placement
-        frame_marks = ctk.CTkFrame(self.tab_set, fg_color="#0d1117", corner_radius=10, border_width=1, border_color="#1a1e24")
-        frame_marks.pack(pady=(0, 10), padx=20, fill="x")
-
-        ctk.CTkLabel(frame_marks, text="Stamp & Signatures", text_color="#f0f3f8", font=ctk.CTkFont(family="Outfit", weight="bold")).grid(row=0, column=0, columnspan=4, padx=10, pady=(10, 6), sticky="w")
-
-        mark_defaults = {
-            'stamp_x': '650', 'stamp_y': '52', 'stamp_size': '122', 'stamp_angle': '-14',
-            'sig_w': '135', 'sig_h': '46',
-            'sig_pres_x': '40', 'sig_pres_y': '54', 'sig_chef_x': '228', 'sig_chef_y': '54'
-        }
-        mark_fields = [
-            ('Stamp X', 'stamp_x'), ('Stamp Y', 'stamp_y'),
-            ('Stamp Size', 'stamp_size'), ('Stamp Angle', 'stamp_angle'),
-            ('Sig Width', 'sig_w'), ('Sig Height', 'sig_h'),
-            ('President X', 'sig_pres_x'), ('President Y', 'sig_pres_y'),
-            ('Chef X', 'sig_chef_x'), ('Chef Y', 'sig_chef_y'),
-        ]
-        r, c = 1, 0
-        for label, key in mark_fields:
-            self.settings_vars[key] = ctk.StringVar(value=mark_defaults[key])
-            ctk.CTkLabel(frame_marks, text=label + ":", text_color="#f0f3f8", font=ctk.CTkFont(family="Outfit")).grid(row=r, column=c * 2, padx=(10, 4), pady=6, sticky="e")
-            ctk.CTkEntry(frame_marks, textvariable=self.settings_vars[key], width=80, fg_color="#0a0a1e", border_color="#30363d", text_color="#f0f3f8", font=ctk.CTkFont(family="Outfit")).grid(row=r, column=c * 2 + 1, padx=(0, 12), pady=6)
-            c += 1
-            if c == 2:
-                c = 0
-                r += 1
-
         ctk.CTkLabel(self.tab_set, text="Note: All coordinates are in points (pt) from the BOTTOM-LEFT of the page.", text_color="gray").pack(pady=10)
 
     def upload_template(self):

@@ -48,6 +48,50 @@ def generate_cert_id(name, course, year, serial, issued_at, private_key_path):
 def sanitize_filename(filename):
     return re.sub(r'(?u)[^-\w.]', '_', str(filename).strip())
 
+def draw_fitted_centered(can, font, cx, y, text, base_size, max_width,
+                         min_size=20, allow_wrap=True, line_spacing=1.08):
+    """Draw centered text; shrink and (for long course names) wrap to two lines to fit max_width."""
+    if pdfmetrics.stringWidth(text, font, base_size) <= max_width:
+        can.setFont(font, base_size)
+        can.drawCentredString(cx, y, text)
+        return
+
+    lines = None
+    if allow_wrap:
+        if ':' in text:
+            i = text.index(':')
+            l1, l2 = text[:i + 1].strip(), text[i + 1:].strip()
+            if l1 and l2:
+                lines = [l1, l2]
+        if lines is None:
+            words = text.split()
+            if len(words) >= 2:
+                best_i, best_diff = 1, None
+                for k in range(1, len(words)):
+                    a, b = ' '.join(words[:k]), ' '.join(words[k:])
+                    diff = abs(pdfmetrics.stringWidth(a, font, base_size) - pdfmetrics.stringWidth(b, font, base_size))
+                    if best_diff is None or diff < best_diff:
+                        best_diff, best_i = diff, k
+                lines = [' '.join(words[:best_i]), ' '.join(words[best_i:])]
+
+    if not lines:
+        size = base_size
+        while size > min_size and pdfmetrics.stringWidth(text, font, size) > max_width:
+            size -= 1
+        can.setFont(font, size)
+        can.drawCentredString(cx, y, text)
+        return
+
+    size = base_size
+    while size > min_size and max(pdfmetrics.stringWidth(lines[0], font, size),
+                                  pdfmetrics.stringWidth(lines[1], font, size)) > max_width:
+        size -= 1
+    can.setFont(font, size)
+    lh = size * line_spacing
+    can.drawCentredString(cx, y + lh / 2.0, lines[0])
+    can.drawCentredString(cx, y - lh / 2.0, lines[1])
+
+
 def generate_pdf_certificate(name, course, qr_path, output_pdf_path, cert_type, template_path, settings):
     font_path = resource_path('Satoshi-Black.ttf')
     pdfmetrics.registerFont(TTFont('Satoshi-Black', font_path))
@@ -61,11 +105,14 @@ def generate_pdf_certificate(name, course, qr_path, output_pdf_path, cert_type, 
     packet = io.BytesIO()
     can = canvas.Canvas(packet, pagesize=(page_width, page_height))
     
-    can.setFont("Satoshi-Black", settings.get('name_size', 30.98))
-    can.drawCentredString(page_width / 2.0, settings.get('name_y', 343.37), name)
+    cx = page_width / 2.0
+    max_text_width = page_width * 0.86
 
-    can.setFont("Satoshi-Black", settings.get('course_size', 41.46))
-    can.drawCentredString(page_width / 2.0, settings.get('course_y', 219.47), course)
+    draw_fitted_centered(can, "Satoshi-Black", cx, settings.get('name_y', 343.37), name,
+                         settings.get('name_size', 30.98), max_text_width, allow_wrap=False)
+
+    draw_fitted_centered(can, "Satoshi-Black", cx, settings.get('course_y', 219.47), course,
+                         settings.get('course_size', 41.46), max_text_width, allow_wrap=True)
     
     can.setFont("Satoshi-Black", settings.get('type_size', 16.81))
     can.drawCentredString(page_width / 2.0, settings.get('type_y', 113.69), cert_type)
@@ -75,31 +122,9 @@ def generate_pdf_certificate(name, course, qr_path, output_pdf_path, cert_type, 
     qr_size = settings.get('qr_size', 110)
     can.drawImage(qr_path, qr_x, qr_y, width=qr_size, height=qr_size, mask='auto')
 
-    # Club stamp — bottom-right, mirroring the QR, tilted
-    stamp_path = resource_path(os.path.join('brand', 'stamp.png'))
-    if os.path.exists(stamp_path):
-        st_x = settings.get('stamp_x', 650)
-        st_y = settings.get('stamp_y', 52)
-        st_size = settings.get('stamp_size', 122)
-        st_angle = settings.get('stamp_angle', -14)
-        can.saveState()
-        can.translate(st_x + st_size / 2.0, st_y + st_size / 2.0)
-        can.rotate(st_angle)
-        can.drawImage(stamp_path, -st_size / 2.0, -st_size / 2.0, width=st_size, height=st_size, mask='auto')
-        can.restoreState()
-
-    # Officer signatures — above the two labels at the bottom-left
-    sig_w = settings.get('sig_w', 135)
-    sig_h = settings.get('sig_h', 46)
-    for fname, kx, ky, dx, dy in [
-        ('sig_president.png', 'sig_pres_x', 'sig_pres_y', 40, 54),
-        ('sig_chef.png', 'sig_chef_x', 'sig_chef_y', 228, 54),
-    ]:
-        sig_path = resource_path(os.path.join('brand', fname))
-        if os.path.exists(sig_path):
-            can.drawImage(sig_path, settings.get(kx, dx), settings.get(ky, dy),
-                          width=sig_w, height=sig_h, mask='auto',
-                          preserveAspectRatio=True, anchor='sw')
+    # The signature and stamp areas are intentionally left blank: printed
+    # certificates are physically signed and stamped by hand. (The web
+    # verification view overlays a digital stamp and signatures for display only.)
 
     can.save()
     
