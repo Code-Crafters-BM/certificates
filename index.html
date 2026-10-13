@@ -196,12 +196,13 @@
         }
         .cert-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
         .cert-text {
-            position: absolute; left: 50%; transform: translate(-50%, -100%);
+            position: absolute; left: 50%; transform: translate(-50%, -50%);
             white-space: nowrap; line-height: 1; text-align: center;
             font-family: 'SatoshiBlack', 'Space Grotesk', sans-serif; color: #0b0b1e;
         }
-        .cert-name   { top: 42.3%; font-size: 3.68cqw; }
-        .cert-course { top: 63.1%; font-size: 4.92cqw; white-space: normal; width: 86%; line-height: 1.04; }
+        /* top = vertical center of the glyph box in the PDF (matches generator.py) */
+        .cert-name   { top: 40.31%; font-size: 3.68cqw; }
+        .cert-course { top: 60.45%; font-size: 4.92cqw; white-space: normal; width: 86%; line-height: 1.08; }
         .cert-qr { position: absolute; left: 78.4%; top: 7.6%; width: 13.07%; }
         .cert-qr img, .cert-qr canvas { width: 100% !important; height: auto !important; display: block; }
         .cert-overlay { position: absolute; display: block; }
