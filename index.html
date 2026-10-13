@@ -509,8 +509,8 @@
                     '<span class="rh-sub">ECC&nbsp;P-256 signature valid</span></span></div>' +
                 '<div class="cert-stage"><div class="cert-3d" id="certRender">' +
                     '<img class="cert-bg" src="certificate-template.png" alt="Code Crafters certificate awarded to ' + escapeHtml(result.name) + '">' +
-                    '<div class="cert-text cert-name">' + escapeHtml(result.name) + '</div>' +
-                    '<div class="cert-text cert-course">' + escapeHtml(result.course) + '</div>' +
+                    '<div class="cert-text cert-name" data-text="' + escapeHtml(result.name) + '">' + escapeHtml(result.name) + '</div>' +
+                    '<div class="cert-text cert-course" data-text="' + escapeHtml(result.course) + '">' + escapeHtml(result.course) + '</div>' +
                     '<div class="cert-qr" id="certQr" aria-hidden="true"></div>' +
                     '<img class="cert-overlay cert-stamp" src="brand/stamp.png" alt="" aria-hidden="true">' +
                     '<img class="cert-overlay cert-sig cert-sig-pres" src="brand/sig_president.png" alt="" aria-hidden="true">' +
@@ -554,7 +554,84 @@
             const shareBtn = document.getElementById('shareBtn');
             if (shareBtn) shareBtn.addEventListener('click', handleShare);
 
-            attachCertTilt(document.getElementById('certRender'));
+            const card = document.getElementById('certRender');
+            fitCertText(card);
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { fitCertText(card); });
+            if (!fitCertText._resizeBound) {
+                fitCertText._resizeBound = true;
+                window.addEventListener('resize', function () {
+                    fitCertText(document.getElementById('certRender'));
+                });
+            }
+            attachCertTilt(card);
+        }
+
+        // Mirror of draw_fitted_centered() in generator.py: keep the base size if the
+        // text fits, otherwise shrink and (for the course) wrap into two balanced lines,
+        // so the browser renders the certificate exactly like the printed PDF.
+        function fitCertLine(card, el, rawText, baseFracW, allowWrap) {
+            const W = card ? card.clientWidth : 0;
+            if (!W || !el || !rawText) return;
+            const maxWidth = W * 0.86;
+            const base = W * baseFracW;
+            const minSize = W * 0.028;
+            const canvas = fitCertLine._c || (fitCertLine._c = document.createElement('canvas'));
+            const ctx = canvas.getContext('2d');
+            const measure = function (t, s) {
+                ctx.font = '900 ' + s + 'px "SatoshiBlack","Space Grotesk",sans-serif';
+                return ctx.measureText(t).width;
+            };
+
+            if (measure(rawText, base) <= maxWidth) {
+                el.style.whiteSpace = 'nowrap';
+                el.style.fontSize = base + 'px';
+                el.textContent = rawText;
+                return;
+            }
+
+            let lines = null;
+            if (allowWrap) {
+                const ci = rawText.indexOf(':');
+                if (ci !== -1) {
+                    const l1 = rawText.slice(0, ci + 1).trim(), l2 = rawText.slice(ci + 1).trim();
+                    if (l1 && l2) lines = [l1, l2];
+                }
+                if (!lines) {
+                    const words = rawText.split(/\s+/);
+                    if (words.length >= 2) {
+                        let bestI = 1, bestDiff = Infinity;
+                        for (let k = 1; k < words.length; k++) {
+                            const a = words.slice(0, k).join(' '), b = words.slice(k).join(' ');
+                            const diff = Math.abs(measure(a, base) - measure(b, base));
+                            if (diff < bestDiff) { bestDiff = diff; bestI = k; }
+                        }
+                        lines = [words.slice(0, bestI).join(' '), words.slice(bestI).join(' ')];
+                    }
+                }
+            }
+
+            if (!lines) {
+                let size = base;
+                while (size > minSize && measure(rawText, size) > maxWidth) size -= 0.5;
+                el.style.whiteSpace = 'nowrap';
+                el.style.fontSize = size + 'px';
+                el.textContent = rawText;
+                return;
+            }
+
+            let size = base;
+            while (size > minSize && Math.max(measure(lines[0], size), measure(lines[1], size)) > maxWidth) size -= 0.5;
+            el.style.whiteSpace = 'normal';
+            el.style.fontSize = size + 'px';
+            el.innerHTML = escapeHtml(lines[0]) + '<br>' + escapeHtml(lines[1]);
+        }
+
+        function fitCertText(card) {
+            if (!card) return;
+            const nameEl = card.querySelector('.cert-name');
+            const courseEl = card.querySelector('.cert-course');
+            if (nameEl) fitCertLine(card, nameEl, nameEl.dataset.text || nameEl.textContent, 0.0368, false);
+            if (courseEl) fitCertLine(card, courseEl, courseEl.dataset.text || courseEl.textContent, 0.0492, true);
         }
 
         function attachCertTilt(card) {
